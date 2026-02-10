@@ -30,11 +30,24 @@ export class CodeComprehensionAuthStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    const callbackUrl = 'http://localhost:5173/login';
+    const logoutUrl = 'http://localhost:5173/';
+
     this.userPoolClient = this.userPool.addClient('SpaClient', {
       userPoolClientName: 'code-comprehension-spa',
       generateSecret: false,
       authFlows: {
         userSrp: true, // USER_SRP_AUTH; REFRESH_TOKEN_AUTH is enabled by default for public clients
+      },
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+          implicitCodeGrant: false,
+        },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: [callbackUrl],
+        logoutUrls: [logoutUrl],
+        defaultRedirectUri: callbackUrl,
       },
     });
 

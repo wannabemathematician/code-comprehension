@@ -13,6 +13,7 @@ new InfraStack(app, 'InfraStack', { env });
 
 const dataStack = new CodeComprehensionDataStack(app, 'CodeComprehensionDataStack', { env });
 
+// Auth stack is standalone: no dependencies on DataStack or ApiStack.
 const authStack = new CodeComprehensionAuthStack(app, 'CodeComprehensionAuthStack', { env });
 
 new CodeComprehensionApiStack(app, 'CodeComprehensionApiStack', {
