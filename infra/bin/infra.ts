@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
+import { CodeComprehensionApiStack } from '../lib/api-stack';
 import { CodeComprehensionAuthStack } from '../lib/auth-stack';
 import { CodeComprehensionDataStack } from '../lib/data-stack';
 import { InfraStack } from '../lib/infra-stack';
 
 const app = new cdk.App();
 
-new InfraStack(app, 'InfraStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
-});
+const env = undefined; // use account/region from CLI: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION }
 
-new CodeComprehensionDataStack(app, 'CodeComprehensionDataStack', {
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
-});
+new InfraStack(app, 'InfraStack', { env });
 
-new CodeComprehensionAuthStack(app, 'CodeComprehensionAuthStack', {
-  /* Cognito Hosted UI domain prefix uses stack account; set env for real account id. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const dataStack = new CodeComprehensionDataStack(app, 'CodeComprehensionDataStack', { env });
+
+const authStack = new CodeComprehensionAuthStack(app, 'CodeComprehensionAuthStack', { env });
+
+new CodeComprehensionApiStack(app, 'CodeComprehensionApiStack', {
+  env,
+  challengesTable: dataStack.challengesTable,
+  challengesBucket: dataStack.challengesBucket,
+  userPoolId: authStack.userPool.userPoolId,
+  userPoolClientId: authStack.userPoolClient.userPoolClientId,
 });
