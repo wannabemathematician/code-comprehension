@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs and debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test and coverage
+coverage/
+.nyc_output/
+
+# AWS CDK (infra)
+cdk.out/
+.cdk.staging/
+
+# Optional: keep if you use
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
