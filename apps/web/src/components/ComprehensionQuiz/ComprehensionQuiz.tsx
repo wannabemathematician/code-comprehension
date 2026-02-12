@@ -10,6 +10,7 @@ import { ProConSort } from './ProConSort';
 
 type Props = {
   quiz: ComprehensionQuiz;
+  onComplete?: () => void;
 };
 
 function isMultipleChoice(q: ComprehensionQuestion): q is MultipleChoiceQuestion {
@@ -42,12 +43,13 @@ function getFeedbackMessage(
   return choice.feedbackIncorrect ?? choice.feedback ?? q.feedback?.incorrect;
 }
 
-export function ComprehensionQuiz({ quiz }: Props) {
+export function ComprehensionQuiz({ quiz, onComplete }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [completed, setCompleted] = useState(false);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
 
   const questions = quiz.questions;
   const current = questions[currentIndex];
@@ -63,8 +65,12 @@ export function ComprehensionQuiz({ quiz }: Props) {
       if (correct) {
         setCorrectCount((c) => c + 1);
       }
+      // Track that this question was answered
+      if (current) {
+        setAnsweredQuestions((prev) => new Set(prev).add(current.id));
+      }
     },
-    [answered]
+    [answered, current]
   );
 
   const toggleChoice = useCallback(
@@ -73,9 +79,12 @@ export function ComprehensionQuiz({ quiz }: Props) {
       if (isSingle) {
         setSelectedIds([id]);
         setAnswered(true);
-        if (isCorrectAnswer(current, [id])) {
+        const correct = isCorrectAnswer(current, [id]);
+        if (correct) {
           setCorrectCount((c) => c + 1);
         }
+        // Track that this question was answered
+        setAnsweredQuestions((prev) => new Set(prev).add(current.id));
       } else {
         setSelectedIds((prev) =>
           prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -88,20 +97,27 @@ export function ComprehensionQuiz({ quiz }: Props) {
   const submitMultiple = useCallback(() => {
     if (!isMultipleChoiceQ || answered) return;
     setAnswered(true);
-    if (isCorrectAnswer(current, selectedIds)) {
+    const correct = isCorrectAnswer(current, selectedIds);
+    if (correct) {
       setCorrectCount((c) => c + 1);
     }
+    // Track that this question was answered
+    setAnsweredQuestions((prev) => new Set(prev).add(current.id));
   }, [current, selectedIds, answered, isMultipleChoiceQ]);
 
   const goNext = useCallback(() => {
     if (isLast) {
       setCompleted(true);
+      // Call onComplete callback when all questions are answered
+      if (onComplete) {
+        onComplete();
+      }
     } else {
       setCurrentIndex((i) => i + 1);
       setSelectedIds([]);
       setAnswered(false);
     }
-  }, [isLast]);
+  }, [isLast, onComplete]);
 
   const correctIds = useMemo(
     () => (isMultipleChoiceQ ? getCorrectChoiceIds(current) : new Set<string>()),
@@ -167,10 +183,21 @@ export function ComprehensionQuiz({ quiz }: Props) {
     </span>
   );
 
+  // Show completion badge when all questions are answered
+  const allQuestionsAnswered = answeredQuestions.size === questions.length;
+  const completionBadge = allQuestionsAnswered ? (
+    <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+      Completed
+    </span>
+  ) : null;
+
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/80">
       <header className="flex shrink-0 items-center justify-between border-b border-slate-800 px-3 py-2">
-        <h2 className="text-xs font-semibold text-slate-50">{quiz.title}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-semibold text-slate-50">{quiz.title}</h2>
+          {completionBadge}
+        </div>
         {showScore}
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 text-[11px] text-slate-200">

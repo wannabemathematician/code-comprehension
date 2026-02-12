@@ -52,9 +52,13 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = getHeaders();
   const res = await fetch(url, {
     ...options,
-    headers: getHeaders(),
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
   });
 
   let body: unknown;
@@ -77,16 +81,18 @@ async function request<T>(
     if (import.meta.env.DEV && body != null) {
       console.debug('[api] error body', bodySnippet(body));
     }
-    const apiError =
-      typeof body === 'object' && body !== null && 'error' in body
-        ? String((body as { error: unknown }).error)
-        : null;
-    const msg =
-      res.status === 401
-        ? 'Unauthorized'
-        : res.status === 403
-          ? 'Forbidden'
-          : apiError ?? res.statusText ?? `Request failed (${res.status})`;
+    // Handle new error format: { error: { code: string, message: string } }
+    let msg = res.statusText ?? `Request failed (${res.status})`;
+    if (typeof body === 'object' && body !== null) {
+      if ('error' in body) {
+        const errorObj = (body as { error: unknown }).error;
+        if (typeof errorObj === 'object' && errorObj !== null && 'message' in errorObj) {
+          msg = String((errorObj as { message: unknown }).message);
+        } else if (typeof errorObj === 'string') {
+          msg = errorObj;
+        }
+      }
+    }
     if (res.status === 401 || res.status === 403) {
       throw new AuthError(msg, res.status, body);
     }
@@ -103,6 +109,7 @@ export interface ListChallengeItem {
   title?: string;
   difficulty?: string;
   tags?: string[];
+  completed?: boolean;
 }
 
 export interface ListChallengesResponse {
@@ -156,4 +163,90 @@ export async function getChallengeZipBlob(id: string): Promise<ArrayBuffer> {
     throw new ApiError(msg, res.status);
   }
   return res.arrayBuffer();
+}
+
+// --- Question and Progress types ---
+
+export type ProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+
+export interface ProgressItem {
+  userId: string;
+  questionId: string;
+  status: ProgressStatus;
+  updatedAt: number;
+  userStatus?: string;
+}
+
+export interface QuestionProgress {
+  status: ProgressStatus;
+  updatedAt: number | null;
+}
+
+export interface Question {
+  questionId: string;
+  title: string;
+  description?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+export interface QuestionWithProgress extends Question {
+  progress: QuestionProgress;
+}
+
+export interface ProgressListResponse {
+  items: ProgressItem[];
+  nextCursor: string | null;
+}
+
+// --- Question and Progress API functions ---
+
+export function getQuestion(questionId: string): Promise<QuestionWithProgress> {
+  return request<QuestionWithProgress>(`/questions/${encodeURIComponent(questionId)}`, {
+    method: 'GET',
+  });
+}
+
+export function updateQuestionProgress(
+  questionId: string,
+  status: ProgressStatus
+): Promise<ProgressItem> {
+  return request<ProgressItem>(`/questions/${encodeURIComponent(questionId)}/progress`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export interface ListProgressOptions {
+  status?: ProgressStatus;
+  limit?: number;
+  cursor?: string;
+  sort?: 'asc' | 'desc';
+}
+
+export function listProgress(options: ListProgressOptions = {}): Promise<ProgressListResponse> {
+  const params = new URLSearchParams();
+  if (options.status) params.set('status', options.status);
+  if (options.limit !== undefined) params.set('limit', String(options.limit));
+  if (options.cursor) params.set('cursor', options.cursor);
+  if (options.sort) params.set('sort', options.sort);
+
+  const query = params.toString();
+  return request<ProgressListResponse>(`/progress${query ? `?${query}` : ''}`, {
+    method: 'GET',
+  });
+}
+
+export interface CompleteChallengeResponse {
+  userId: string;
+  challengeId: string;
+  status: 'COMPLETED';
+  updatedAt: number;
+}
+
+export function completeChallenge(challengeId: string): Promise<CompleteChallengeResponse> {
+  return request<CompleteChallengeResponse>(`/challenges/${encodeURIComponent(challengeId)}/complete`, {
+    method: 'PUT',
+  });
 }

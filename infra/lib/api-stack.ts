@@ -12,6 +12,7 @@ import { Construct } from 'constructs';
 export interface CodeComprehensionApiStackProps extends cdk.StackProps {
   challengesTable: dynamodb.ITable;
   challengesBucket: s3.IBucket;
+  userQuestionProgressTable: dynamodb.ITable;
   userPoolId: string;
   userPoolClientId: string;
 }
@@ -26,9 +27,10 @@ export class CodeComprehensionApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CodeComprehensionApiStackProps) {
     super(scope, id, props);
 
-    const { challengesTable, challengesBucket, userPoolId, userPoolClientId } = props;
+    const { challengesTable, challengesBucket, userQuestionProgressTable, userPoolId, userPoolClientId } = props;
     const tableName = challengesTable.tableName;
     const bucketName = challengesBucket.bucketName;
+    const progressTableName = userQuestionProgressTable.tableName;
 
     const lambdasDir = path.join(__dirname, '..', 'lambdas');
     const nodeJsFnProps = {
@@ -37,6 +39,8 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       environment: {
         CHALLENGES_TABLE_NAME: tableName,
         CHALLENGES_BUCKET_NAME: bucketName,
+        USER_QUESTION_PROGRESS_TABLE_NAME: progressTableName,
+        AWS_REGION: this.region,
       },
     };
 
@@ -46,6 +50,7 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       functionName: 'code-comprehension-listChallenges',
     });
     challengesTable.grantReadData(listChallenges);
+    userQuestionProgressTable.grantReadData(listChallenges);
 
     const getChallenge = new NodejsFunction(this, 'GetChallenge', {
       ...nodeJsFnProps,
@@ -79,7 +84,7 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       apiName: 'code-comprehension-api',
       corsPreflight: {
         allowHeaders: ['Authorization', 'Content-Type', 'Accept'],
-        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.OPTIONS],
+        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.PUT, apigwv2.CorsHttpMethod.OPTIONS],
         allowOrigins: ['*'],
       },
       defaultAuthorizer: authorizer,
@@ -108,6 +113,60 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       methods: [apigwv2.HttpMethod.GET],
       integration: new HttpLambdaIntegration('GetChallengeZipIntegration', getChallengeZip),
     });
+
+    // Questions and Progress endpoints
+    const getQuestion = new NodejsFunction(this, 'GetQuestion', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'getQuestion.ts'),
+      functionName: 'code-comprehension-getQuestion',
+    });
+    userQuestionProgressTable.grantReadData(getQuestion);
+
+    const updateProgress = new NodejsFunction(this, 'UpdateProgress', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'updateProgress.ts'),
+      functionName: 'code-comprehension-updateProgress',
+    });
+    userQuestionProgressTable.grantReadWriteData(updateProgress);
+
+    const listProgress = new NodejsFunction(this, 'ListProgress', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'listProgress.ts'),
+      functionName: 'code-comprehension-listProgress',
+    });
+    userQuestionProgressTable.grantReadData(listProgress);
+
+    const completeChallenge = new NodejsFunction(this, 'CompleteChallenge', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'completeChallenge.ts'),
+      functionName: 'code-comprehension-completeChallenge',
+    });
+    userQuestionProgressTable.grantReadWriteData(completeChallenge);
+
+    this.httpApi.addRoutes({
+      path: '/questions/{questionId}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GetQuestionIntegration', getQuestion),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/questions/{questionId}/progress',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: new HttpLambdaIntegration('UpdateProgressIntegration', updateProgress),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/progress',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new HttpLambdaIntegration('ListProgressIntegration', listProgress),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/challenges/{challengeId}/complete',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: new HttpLambdaIntegration('CompleteChallengeIntegration', completeChallenge),
+    });
+
 
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: this.httpApi.apiEndpoint ?? '',

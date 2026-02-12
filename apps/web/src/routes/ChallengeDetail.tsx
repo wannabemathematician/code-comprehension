@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ComprehensionQuiz } from '../components/ComprehensionQuiz/ComprehensionQuiz';
 import { ResizableSplit } from '../components/ResizableSplit/ResizableSplit';
 import { RepositoryExplorer } from '../components/RepositoryExplorer/RepositoryExplorer';
@@ -8,6 +8,8 @@ import {
   type HydratedChallenge,
   type LoadProgress,
 } from '../challenge/loadChallengeZip';
+import { completeChallenge } from '../api/client';
+import { login } from '../lib/auth';
 
 const SLACK_INITIAL_PERCENT = 32;
 const MIN_SLACK_PERCENT = 20;
@@ -22,6 +24,7 @@ const PROGRESS_LABELS: Record<LoadProgress, string> = {
 
 export default function ChallengeDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [hydrated, setHydrated] = useState<HydratedChallenge | null>(null);
   const [progress, setProgress] = useState<LoadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +52,21 @@ export default function ChallengeDetail() {
       });
   }, [id]);
 
+
   useEffect(() => {
     runLoad();
   }, [runLoad]);
+
+  // Handle challenge completion when all questions are answered
+  const handleChallengeComplete = useCallback(async () => {
+    if (!id) return;
+    try {
+      await completeChallenge(id);
+    } catch (err) {
+      // Silently fail - completion is not critical for UX
+      console.error('Failed to mark challenge as completed:', err);
+    }
+  }, [id]);
 
   if (!id) {
     return (
@@ -243,7 +258,7 @@ export default function ChallengeDetail() {
           </div>
 
           {hydrated.comprehension ? (
-            <ComprehensionQuiz quiz={hydrated.comprehension} />
+            <ComprehensionQuiz quiz={hydrated.comprehension} onComplete={handleChallengeComplete} />
           ) : (
             <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/80">
               <header className="flex shrink-0 items-center justify-between border-b border-slate-800 px-3 py-2">

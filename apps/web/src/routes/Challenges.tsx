@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import { listChallenges, AuthError, type ListChallengeItem } from '../api/client';
 import { login } from '../lib/auth';
 
+type FilterStatus = 'all' | 'completed' | 'not-completed';
+
 export default function Challenges() {
   const [challenges, setChallenges] = useState<ListChallengeItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterStatus>('all');
 
   const fetchChallenges = useCallback(() => {
     setLoading(true);
@@ -98,6 +101,14 @@ export default function Challenges() {
     );
   }
 
+  // Filter challenges based on completion status
+  const filteredChallenges = challenges?.filter((challenge) => {
+    if (filter === 'all') return true;
+    if (filter === 'completed') return challenge.completed === true;
+    if (filter === 'not-completed') return challenge.completed !== true;
+    return true;
+  }) ?? [];
+
   return (
     <section className="flex flex-1 flex-col p-6">
       <header className="mb-4 flex items-center justify-between">
@@ -109,19 +120,64 @@ export default function Challenges() {
         </div>
       </header>
 
-      {challenges && challenges.length > 0 ? (
+      {/* Filter controls */}
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-xs text-slate-400">Filter:</span>
+        <button
+          type="button"
+          onClick={() => setFilter('all')}
+          className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            filter === 'all'
+              ? 'bg-brand-500 text-slate-950'
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          }`}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('completed')}
+          className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            filter === 'completed'
+              ? 'bg-brand-500 text-slate-950'
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          }`}
+        >
+          Completed
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('not-completed')}
+          className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            filter === 'not-completed'
+              ? 'bg-brand-500 text-slate-950'
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          }`}
+        >
+          Not Completed
+        </button>
+      </div>
+
+      {filteredChallenges.length > 0 ? (
         <ul className="mt-2 grid gap-3 md:grid-cols-2">
-          {challenges.map((challenge) => (
+          {filteredChallenges.map((challenge) => (
             <li key={challenge.challengeId}>
               <Link
                 to={`/challenges/${challenge.challengeId}`}
                 className="group block rounded-lg border border-slate-800 bg-slate-900/80 p-4 hover:border-brand-500/70 hover:bg-slate-900"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-50">
-                      {challenge.title ?? 'Untitled'}
-                    </h2>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold text-slate-50">
+                        {challenge.title ?? 'Untitled'}
+                      </h2>
+                      {challenge.completed && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                          Completed
+                        </span>
+                      )}
+                    </div>
                     {challenge.tags && challenge.tags.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {challenge.tags.map((tag) => (
@@ -150,13 +206,23 @@ export default function Challenges() {
         </ul>
       ) : (
         <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/80 p-6 text-center">
-          <h2 className="text-base font-semibold text-slate-50">Empty state</h2>
+          <h2 className="text-base font-semibold text-slate-50">
+            {challenges && challenges.length > 0
+              ? `No ${filter === 'completed' ? 'completed' : filter === 'not-completed' ? 'incomplete' : ''} challenges`
+              : 'Empty state'}
+          </h2>
           <p className="mt-2 text-sm text-slate-400">
-            No published challenges exist yet. Challenges with{' '}
-            <code className="rounded bg-slate-800 px-1 py-0.5 font-mono text-xs text-slate-300">
-              status=&quot;published&quot;
-            </code>{' '}
-            will appear here.
+            {challenges && challenges.length > 0
+              ? `Try changing the filter to see more challenges.`
+              : `No published challenges exist yet. Challenges with `}
+            {challenges && challenges.length === 0 && (
+              <>
+                <code className="rounded bg-slate-800 px-1 py-0.5 font-mono text-xs text-slate-300">
+                  status=&quot;published&quot;
+                </code>{' '}
+                will appear here.
+              </>
+            )}
           </p>
         </div>
       )}

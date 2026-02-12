@@ -12,7 +12,7 @@ function parseChallengeId(event: APIGatewayProxyEventV2): string | null {
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const challengeId = parseChallengeId(event);
   if (challengeId === null) {
-    return badRequest('Missing or invalid challenge id');
+    return badRequest('INVALID_INPUT', 'Missing or invalid challenge id');
   }
   const tableName = getTableName();
   if (!tableName) {
