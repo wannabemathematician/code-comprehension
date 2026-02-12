@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component<
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true }}>
         <App />
       </BrowserRouter>
     </ErrorBoundary>

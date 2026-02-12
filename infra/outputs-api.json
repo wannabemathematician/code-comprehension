@@ -1,0 +1,20 @@
+{
+  "CodeComprehensionDataStack": {
+    "ExportsOutputFnGetAttChallenges261CFAA0ArnC2F2F711": "arn:aws:dynamodb:eu-west-2:502313221839:table/Challenges",
+    "ChallengesTableName": "Challenges",
+    "ExportsOutputRefChallenges261CFAA077FBBA01": "Challenges",
+    "ExportsOutputRefChallengesBucket7D0F2282082EE750": "codecomprehensiondatastac-challengesbucket7d0f2282-pz4bp60kmohb",
+    "ChallengesBucketName": "codecomprehensiondatastac-challengesbucket7d0f2282-pz4bp60kmohb",
+    "ExportsOutputFnGetAttChallengesBucket7D0F2282Arn71F13D1A": "arn:aws:s3:::codecomprehensiondatastac-challengesbucket7d0f2282-pz4bp60kmohb"
+  },
+  "CodeComprehensionAuthStack": {
+    "UserPoolClientId": "3a8uvsdjkh8kvq5j5d6hebs21s",
+    "HostedUiDomain": "https://code-comprehension-502313221839.auth.eu-west-2.amazoncognito.com",
+    "UserPoolId": "eu-west-2_aR7TiAMvs",
+    "ExportsOutputRefUserPool6BA7E5F296FD7236": "eu-west-2_aR7TiAMvs",
+    "ExportsOutputRefUserPoolSpaClient6B560FFA03368753": "3a8uvsdjkh8kvq5j5d6hebs21s"
+  },
+  "CodeComprehensionApiStack": {
+    "ApiUrl": "https://8zycobncyk.execute-api.eu-west-2.amazonaws.com"
+  }
+}

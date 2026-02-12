@@ -7,9 +7,10 @@ import type {
 } from '../../mocks/virtualRepo';
 import { highlightCode } from '../../utils/syntaxHighlight';
 
-const TREE_INITIAL_PERCENT = 38;
+const TREE_INITIAL_PERCENT = 28;
 const MIN_TREE_PERCENT = 20;
 const MAX_TREE_PERCENT = 60;
+
 
 type Props = {
   root: VirtualDirectory;
@@ -124,8 +125,7 @@ export function RepositoryExplorer({ root }: Props) {
           Search (coming soon)
         </button>
       </div>
-      <p className="shrink-0 px-2 py-2 pb-1 text-slate-400">{root.name}/</p>
-      <ul className="min-h-0 space-y-0.5 overflow-y-auto px-2 pb-2">
+      <ul className="min-h-0 space-y-0.5 overflow-y-auto px-2 py-2 pb-2">
         {root.children.map((child) => (
           <TreeItem
             key={child.path}
@@ -153,16 +153,31 @@ export function RepositoryExplorer({ root }: Props) {
           </span>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-[360px] flex-1 overflow-y-auto">
         {selectedFile ? (
-          <pre className="m-0 min-h-full bg-transparent p-3 font-mono text-[11px] leading-relaxed text-slate-100 whitespace-pre">
-            <code
-              className={`language-${selectedFile.language}`}
-              dangerouslySetInnerHTML={{
-                __html: highlightCode(selectedFile.contents, selectedFile.language)
-              }}
-            />
-          </pre>
+          selectedFile.contents.length === 0 ? (
+            <div className="flex min-h-[200px] items-center justify-center p-4 text-[11px] text-slate-500">
+              Empty file
+            </div>
+          ) : (
+            <div className="flex font-mono text-[11px] leading-relaxed">
+              <div className="shrink-0 select-none border-r border-slate-800 bg-slate-900/50 px-3 py-3 text-right text-slate-500">
+                {selectedFile.contents.split('\n').map((_, i) => (
+                  <div key={i} className="leading-relaxed">
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+              <pre className="m-0 min-h-full flex-1 bg-transparent p-3 text-slate-100 whitespace-pre">
+                <code
+                  className={`language-${selectedFile.language}`}
+                  dangerouslySetInnerHTML={{
+                    __html: highlightCode(selectedFile.contents, selectedFile.language)
+                  }}
+                />
+              </pre>
+            </div>
+          )
         ) : (
           <div className="flex h-full min-h-[200px] items-center justify-center text-[11px] text-slate-400">
             Choose a file from the tree to start reading the code.

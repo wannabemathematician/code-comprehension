@@ -22,6 +22,13 @@ export class CodeComprehensionDataStack extends cdk.Stack {
       versioned: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.GET],
+          allowedOrigins: ['http://localhost:5173', 'http://localhost:3000'],
+          allowedHeaders: ['*'],
+        },
+      ],
     });
 
     this.challengesTable = new dynamodb.Table(this, 'Challenges', {

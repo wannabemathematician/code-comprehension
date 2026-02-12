@@ -62,6 +62,14 @@ export class CodeComprehensionApiStack extends cdk.Stack {
     challengesTable.grantReadData(getChallengeDownloadUrl);
     challengesBucket.grantRead(getChallengeDownloadUrl);
 
+    const getChallengeZip = new NodejsFunction(this, 'GetChallengeZip', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'getChallengeZip.ts'),
+      functionName: 'code-comprehension-getChallengeZip',
+    });
+    challengesTable.grantReadData(getChallengeZip);
+    challengesBucket.grantRead(getChallengeZip);
+
     const issuer = `https://cognito-idp.${this.region}.amazonaws.com/${userPoolId}`;
     const authorizer = new HttpJwtAuthorizer('CognitoAuthorizer', issuer, {
       jwtAudience: [userPoolClientId],
@@ -70,7 +78,7 @@ export class CodeComprehensionApiStack extends cdk.Stack {
     this.httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: 'code-comprehension-api',
       corsPreflight: {
-        allowHeaders: ['Authorization', 'Content-Type'],
+        allowHeaders: ['Authorization', 'Content-Type', 'Accept'],
         allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.OPTIONS],
         allowOrigins: ['*'],
       },
@@ -93,6 +101,12 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       path: '/challenges/{id}/download',
       methods: [apigwv2.HttpMethod.GET],
       integration: new HttpLambdaIntegration('GetChallengeDownloadUrlIntegration', getChallengeDownloadUrl),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/challenges/{id}/zip',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new HttpLambdaIntegration('GetChallengeZipIntegration', getChallengeZip),
     });
 
     new cdk.CfnOutput(this, 'ApiUrl', {

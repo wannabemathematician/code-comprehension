@@ -1,0 +1,9 @@
+{
+  "CodeComprehensionAuthStack": {
+    "UserPoolClientId": "3a8uvsdjkh8kvq5j5d6hebs21s",
+    "HostedUiDomain": "https://code-comprehension-502313221839.auth.eu-west-2.amazoncognito.com",
+    "UserPoolId": "eu-west-2_aR7TiAMvs",
+    "ExportsOutputRefUserPool6BA7E5F296FD7236": "eu-west-2_aR7TiAMvs",
+    "ExportsOutputRefUserPoolSpaClient6B560FFA03368753": "3a8uvsdjkh8kvq5j5d6hebs21s"
+  }
+}

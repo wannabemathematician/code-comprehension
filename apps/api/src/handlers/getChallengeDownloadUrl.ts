@@ -27,7 +27,11 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     if (!item) {
       return notFound('Challenge not found');
     }
-    const key = `${challengeId}.zip`;
+    const key =
+      typeof item.zipS3Key === 'string' && item.zipS3Key.trim() !== ''
+        ? item.zipS3Key.trim()
+        : `${challengeId}.zip`;
+    console.log('key', key);
     const url = await getPresignedDownloadUrl(bucketName, key, EXPIRES_IN_SECONDS);
     return ok({ url, expiresInSeconds: EXPIRES_IN_SECONDS });
   } catch (err) {

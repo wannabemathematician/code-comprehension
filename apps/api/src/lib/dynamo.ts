@@ -21,6 +21,8 @@ export interface ChallengeItem {
   difficulty?: string;
   tags?: string[];
   status?: string;
+  /** S3 object key for the challenge zip (e.g. "v1.zip"). If missing, handlers may use challengeId.zip. */
+  zipS3Key?: string;
   [key: string]: unknown;
 }
 

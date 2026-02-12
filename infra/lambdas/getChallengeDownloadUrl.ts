@@ -1,4 +1,5 @@
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -38,13 +39,17 @@ export const handler = async (
         body: JSON.stringify({ error: 'Challenge not found' }),
       };
     }
-    const s3Key = `${id}.zip`;
+    const item = unmarshall(itemResult.Item) as { zipS3Key?: string };
+    const s3Key =
+      typeof item.zipS3Key === 'string' && item.zipS3Key.trim() !== ''
+        ? item.zipS3Key.trim()
+        : `${id}.zip`;
     const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
     const url = await getSignedUrl(s3, command, { expiresIn: URL_EXPIRY_SECONDS });
     return {
       statusCode: 200,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ downloadUrl: url }),
+      body: JSON.stringify({ url, expiresInSeconds: URL_EXPIRY_SECONDS }),
     };
   } catch (err) {
     console.error(err);

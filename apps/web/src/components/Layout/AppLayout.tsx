@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { isAuthenticated, logout, getIdTokenEmail } from '../../lib/auth';
 
 const navLinkBase =
   'text-sm font-medium transition-colors px-3 py-2 rounded-md border border-transparent';
@@ -8,7 +9,8 @@ const navLinkInactive =
   'text-slate-300 hover:text-white hover:bg-slate-800/60';
 
 function TopNav() {
-  const isAuthenticated = false; // TODO: wire to real auth later
+  const authenticated = isAuthenticated();
+  const email = getIdTokenEmail();
 
   return (
     <header className="border-b border-slate-800 bg-slate-950/70 backdrop-blur">
@@ -36,22 +38,27 @@ function TopNav() {
           >
             Home
           </NavLink>
-          <NavLink
-            to="/challenges"
-            className={({ isActive }) =>
-              `${navLinkBase} ${isActive ? navLinkActive : navLinkInactive}`
-            }
-          >
-            Challenges
-          </NavLink>
+          {authenticated && (
+            <NavLink
+              to="/challenges"
+              className={({ isActive }) =>
+                `${navLinkBase} ${isActive ? navLinkActive : navLinkInactive}`
+              }
+            >
+              Challenges
+            </NavLink>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
+          {authenticated ? (
             <>
-              <span className="text-xs text-slate-300">you@example.com</span>
+              {email && (
+                <span className="text-xs text-slate-300">{email}</span>
+              )}
               <button
                 type="button"
+                onClick={() => logout()}
                 className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-800"
               >
                 Logout
