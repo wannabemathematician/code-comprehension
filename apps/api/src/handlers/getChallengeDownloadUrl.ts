@@ -15,7 +15,7 @@ function parseChallengeId(event: APIGatewayProxyEventV2): string | null {
 export async function handler(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const challengeId = parseChallengeId(event);
   if (challengeId === null) {
-    return badRequest('Missing or invalid challenge id');
+    return badRequest('INVALID_INPUT', 'Missing or invalid challenge id');
   }
   const tableName = getTableName();
   const bucketName = getBucketName();
@@ -31,7 +31,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       typeof item.zipS3Key === 'string' && item.zipS3Key.trim() !== ''
         ? item.zipS3Key.trim()
         : `${challengeId}.zip`;
-    console.log('key', key);
+    console.log('key aaaa', key);
     const url = await getPresignedDownloadUrl(bucketName, key, EXPIRES_IN_SECONDS);
     return ok({ url, expiresInSeconds: EXPIRES_IN_SECONDS });
   } catch (err) {

@@ -3,7 +3,7 @@ import { getChallenge, getChallengeZipBlob } from '../api/client';
 import type { VirtualDirectory, VirtualFile } from '../mocks/virtualRepo';
 import type { ComprehensionQuiz } from '../types/comprehension';
 
-const CACHE_VERSION = 8;
+const CACHE_VERSION = 10;
 const CACHE_PREFIX = `cc_challenge_v${CACHE_VERSION}_`;
 const BINARY_NULL_THRESHOLD = 0.1; // treat as binary if >10% null bytes
 
@@ -244,7 +244,7 @@ export type LoadChallengeOptions = {
 
 /**
  * Load challenge metadata and hydrated virtual filesystem from API + zip.
- * Uses sessionStorage cache keyed by challengeId; if cached, skips download/unzip.
+ * Always downloads from server (no caching for development).
  */
 export async function loadChallengeZip(
   challengeId: string,
@@ -255,34 +255,29 @@ export async function loadChallengeZip(
   onProgress?.('loading');
   const metadata = await getChallenge(challengeId);
 
-  const cached = getCachedFiles(challengeId);
+  // Always download from server (skip cache for development)
+  onProgress?.('downloading');
+  let arrayBuffer = await getChallengeZipBlob(challengeId);
+  arrayBuffer = ensureZipBuffer(arrayBuffer);
+  onProgress?.('unzipping');
   let files: CachedFile[];
-  if (cached && cached.length > 0) {
-    onProgress?.('done');
-    files = cached;
-  } else {
-    onProgress?.('downloading');
-    let arrayBuffer = await getChallengeZipBlob(challengeId);
-    arrayBuffer = ensureZipBuffer(arrayBuffer);
-    onProgress?.('unzipping');
-    try {
-      files = unzipToFiles(arrayBuffer);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const u8 = new Uint8Array(arrayBuffer);
-      const preview =
-        u8.length > 0
-          ? Array.from(u8.slice(0, 4))
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join(' ')
-          : 'empty';
-      throw new Error(
-        `${msg} (${arrayBuffer.byteLength} bytes, first bytes: ${preview})`
-      );
-    }
-    setCachedFiles(challengeId, files);
-    onProgress?.('done');
+  try {
+    files = unzipToFiles(arrayBuffer);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const u8 = new Uint8Array(arrayBuffer);
+    const preview =
+      u8.length > 0
+        ? Array.from(u8.slice(0, 4))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' ')
+        : 'empty';
+    throw new Error(
+      `${msg} (${arrayBuffer.byteLength} bytes, first bytes: ${preview})`
+    );
   }
+  // Skip caching - always download fresh
+  onProgress?.('done');
 
   const slackFile = files.find((f) => f.path.toLowerCase().endsWith('slack.json'));
   let slack: unknown;
@@ -323,10 +318,26 @@ export async function loadChallengeZip(
               return false;
             }
             const question = q as Record<string, unknown>;
-            if (question.type === 'multipleChoice') {
-              const isValid = Array.isArray(question.choices) && question.choices.length > 0;
+            
+            if (question.type === 'explain') {
+              const hasQuestion = typeof question.question === 'string' && question.question.length > 0;
+              const hasMarkScheme = Array.isArray(question.markScheme) && question.markScheme.length > 0;
+              const isValid = hasQuestion && hasMarkScheme;
               if (!isValid) {
-                console.debug('[comprehension] Filtered out multipleChoice: invalid choices', question);
+                console.debug('[comprehension] Filtered out explain: invalid structure', {
+                  id: question.id,
+                  hasQuestion,
+                  hasMarkScheme,
+                  question,
+                });
+              }
+              return isValid;
+            }
+            
+            if (question.type === 'multipleChoice') {
+              const isValid = Array.isArray(question.choices) && question.choices.length >= 2;
+              if (!isValid) {
+                console.debug('[comprehension] Filtered out multipleChoice: invalid choices (need at least 2)', question);
               }
               return isValid;
             }
@@ -339,7 +350,6 @@ export async function loadChallengeZip(
                   id: question.id,
                   hasStatements,
                   hasPlacements,
-                  hasChoices: 'choices' in question,
                   question,
                 });
               }
@@ -357,7 +367,30 @@ export async function loadChallengeZip(
               if (shuffle) choices = choices.sort(() => Math.random() - 0.5);
               return { ...question, choices, type: 'multipleChoice' } as unknown as ComprehensionQuiz['questions'][0];
             } else if (question.type === 'proConSort') {
-              return { ...question, type: 'proConSort' } as unknown as ComprehensionQuiz['questions'][0];
+              // Apply defaults for proConSort questions
+              const processedQuestion = { ...question };
+              
+              // Default columns if not provided
+              if (!processedQuestion.columns || !Array.isArray(processedQuestion.columns)) {
+                processedQuestion.columns = [
+                  { id: 'pro', label: 'Pro' },
+                  { id: 'con', label: 'Con' },
+                ];
+              }
+              
+              // Default shuffleStatements to true if not provided (per schema)
+              // Shuffle if not explicitly false
+              if (processedQuestion.shuffleStatements !== false && Array.isArray(processedQuestion.statements)) {
+                processedQuestion.statements = [...processedQuestion.statements].sort(() => Math.random() - 0.5);
+              }
+              // Set to false so component knows statements are already shuffled (if they were shuffled)
+              // or keep as false if it was explicitly false
+              processedQuestion.shuffleStatements = false;
+              
+              return { ...processedQuestion, type: 'proConSort' } as unknown as ComprehensionQuiz['questions'][0];
+            } else if (question.type === 'explain') {
+              // Explain questions don't need special processing, just validate structure
+              return { ...question, type: 'explain' } as unknown as ComprehensionQuiz['questions'][0];
             }
             // Fallback: preserve the question as-is if type doesn't match
             return question as unknown as ComprehensionQuiz['questions'][0];

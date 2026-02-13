@@ -96,7 +96,8 @@ async function request<T>(
     if (res.status === 401 || res.status === 403) {
       throw new AuthError(msg, res.status, body);
     }
-    throw new ApiError(`${res.status}: ${msg}`, res.status, body);
+    const displayMsg = msg && msg.trim() ? `${res.status}: ${msg}` : (res.status === 500 ? 'Server error. Please try again.' : `Request failed (${res.status}).`);
+    throw new ApiError(displayMsg, res.status, body);
   }
 
   return body as T;
@@ -248,5 +249,37 @@ export interface CompleteChallengeResponse {
 export function completeChallenge(challengeId: string): Promise<CompleteChallengeResponse> {
   return request<CompleteChallengeResponse>(`/challenges/${encodeURIComponent(challengeId)}/complete`, {
     method: 'PUT',
+  });
+}
+
+export interface RubricResultItem {
+  id: string;
+  label: string;
+  status: 'met' | 'partial' | 'missed';
+  score: number;
+}
+
+export interface GradeExplainGrading {
+  rubric_scores?: Record<string, { score: number; weight?: number; evidence_claim_indexes?: number[]; rationale?: string }>;
+  rubric_results?: RubricResultItem[];
+  incorrect_claims?: Array<{ text?: string; severity?: string; reason?: string }>;
+  communication?: { structure?: number; specificity?: number; causal_reasoning?: number; concision?: number; comms_total?: number };
+  scores?: { technical_raw?: number; technical_after_penalties?: number; communication_weight?: number; final_total?: number };
+  feedback?: { met?: string[]; partial?: string[]; missed?: string[]; top_improvements?: string[] };
+  confidence?: number;
+}
+
+export interface GradeExplainResponse {
+  score: number;
+  grading?: GradeExplainGrading;
+}
+
+export function gradeExplain(
+  answer: string,
+  question: Record<string, unknown>
+): Promise<GradeExplainResponse> {
+  return request<GradeExplainResponse>('/gradeExplain', {
+    method: 'POST',
+    body: JSON.stringify({ answer, question }),
   });
 }

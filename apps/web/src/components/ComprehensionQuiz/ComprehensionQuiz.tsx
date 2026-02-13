@@ -5,8 +5,10 @@ import type {
   ComprehensionQuiz,
   MultipleChoiceQuestion,
   ProConSortQuestion,
+  ExplainQuestion,
 } from '../../types/comprehension';
 import { ProConSort } from './ProConSort';
+import { ExplainQuestion as ExplainQuestionComponent } from './ExplainQuestion';
 
 type Props = {
   quiz: ComprehensionQuiz;
@@ -19,6 +21,10 @@ function isMultipleChoice(q: ComprehensionQuestion): q is MultipleChoiceQuestion
 
 function isProConSort(q: ComprehensionQuestion): q is ProConSortQuestion {
   return q.type === 'proConSort' && Array.isArray(q.statements);
+}
+
+function isExplain(q: ComprehensionQuestion): q is ExplainQuestion {
+  return q.type === 'explain' && typeof q.question === 'string' && Array.isArray(q.markScheme);
 }
 
 function getCorrectChoiceIds(q: MultipleChoiceQuestion): Set<string> {
@@ -56,12 +62,30 @@ export function ComprehensionQuiz({ quiz, onComplete }: Props) {
   const isLast = currentIndex >= questions.length - 1;
   const isMultipleChoiceQ = current && isMultipleChoice(current);
   const isProConSortQ = current && isProConSort(current);
+  const isExplainQ = current && isExplain(current);
   const isSingle = isMultipleChoiceQ && (current.selectionType ?? 'single') === 'single';
 
   const handleProConAnswer = useCallback(
     (correct: boolean) => {
       if (answered) return;
       setAnswered(true);
+      if (correct) {
+        setCorrectCount((c) => c + 1);
+      }
+      // Track that this question was answered
+      if (current) {
+        setAnsweredQuestions((prev) => new Set(prev).add(current.id));
+      }
+    },
+    [answered, current]
+  );
+
+  const handleExplainAnswer = useCallback(
+    (correct: boolean) => {
+      if (answered) return;
+      setAnswered(true);
+      // For explain questions, we mark as correct for now
+      // In a real implementation, this would be evaluated against mark scheme
       if (correct) {
         setCorrectCount((c) => c + 1);
       }
@@ -204,11 +228,11 @@ export function ComprehensionQuiz({ quiz, onComplete }: Props) {
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Question {currentIndex + 1} of {questions.length}
         </p>
-        <p className="font-medium text-slate-100">{current.prompt}</p>
-        {current.helpText && (
-          <p className="rounded bg-slate-800/60 px-2 py-1.5 text-[10px] text-slate-400">
-            {current.helpText}
-          </p>
+        {(isMultipleChoiceQ || isProConSortQ) && (
+          <p className="font-medium text-slate-100">{current.prompt}</p>
+        )}
+        {isExplainQ && current.prompt && (
+          <p className="font-medium text-slate-100">{current.prompt}</p>
         )}
         {isMultipleChoiceQ && isMultipleChoice(current) ? (
           <>
@@ -298,9 +322,17 @@ export function ComprehensionQuiz({ quiz, onComplete }: Props) {
             answered={answered}
             onAnswer={handleProConAnswer}
           />
+        ) : isExplainQ && isExplain(current) ? (
+          <ExplainQuestionComponent
+            key={current.id}
+            question={current}
+            answered={answered}
+            onAnswer={handleExplainAnswer}
+            passingScorePercent={quiz.explainPassingPercent ?? 60}
+          />
         ) : (
           <div className="rounded bg-red-500/10 px-3 py-2 text-[10px] text-red-400">
-            Error: Invalid question type. Question must be either multipleChoice or proConSort.
+            Error: Unsupported question type. Supported types are multipleChoice, proConSort, and explain.
           </div>
         )}
         {current.explanation && answered && (

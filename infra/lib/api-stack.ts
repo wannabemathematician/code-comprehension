@@ -15,6 +15,8 @@ export interface CodeComprehensionApiStackProps extends cdk.StackProps {
   userQuestionProgressTable: dynamodb.ITable;
   userPoolId: string;
   userPoolClientId: string;
+  /** Cohere API key for /gradeExplain (from infra/.env). Optional; grading will fail without it. */
+  cohereApiKey?: string;
 }
 
 /**
@@ -27,7 +29,7 @@ export class CodeComprehensionApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CodeComprehensionApiStackProps) {
     super(scope, id, props);
 
-    const { challengesTable, challengesBucket, userQuestionProgressTable, userPoolId, userPoolClientId } = props;
+    const { challengesTable, challengesBucket, userQuestionProgressTable, userPoolId, userPoolClientId, cohereApiKey } = props;
     const tableName = challengesTable.tableName;
     const bucketName = challengesBucket.bucketName;
     const progressTableName = userQuestionProgressTable.tableName;
@@ -40,7 +42,6 @@ export class CodeComprehensionApiStack extends cdk.Stack {
         CHALLENGES_TABLE_NAME: tableName,
         CHALLENGES_BUCKET_NAME: bucketName,
         USER_QUESTION_PROGRESS_TABLE_NAME: progressTableName,
-        AWS_REGION: this.region,
       },
     };
 
@@ -84,7 +85,7 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       apiName: 'code-comprehension-api',
       corsPreflight: {
         allowHeaders: ['Authorization', 'Content-Type', 'Accept'],
-        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.PUT, apigwv2.CorsHttpMethod.OPTIONS],
+        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.PUT, apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
         allowOrigins: ['*'],
       },
       defaultAuthorizer: authorizer,
@@ -143,6 +144,17 @@ export class CodeComprehensionApiStack extends cdk.Stack {
     });
     userQuestionProgressTable.grantReadWriteData(completeChallenge);
 
+    const gradeExplain = new NodejsFunction(this, 'GradeExplain', {
+      ...nodeJsFnProps,
+      entry: path.join(lambdasDir, 'gradeExplain.ts'),
+      functionName: 'code-comprehension-gradeExplain',
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        ...nodeJsFnProps.environment,
+        ...(cohereApiKey ? { COHERE_API_KEY: cohereApiKey } : {}),
+      },
+    });
+
     this.httpApi.addRoutes({
       path: '/questions/{questionId}',
       methods: [apigwv2.HttpMethod.GET],
@@ -167,6 +179,11 @@ export class CodeComprehensionApiStack extends cdk.Stack {
       integration: new HttpLambdaIntegration('CompleteChallengeIntegration', completeChallenge),
     });
 
+    this.httpApi.addRoutes({
+      path: '/gradeExplain',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new HttpLambdaIntegration('GradeExplainIntegration', gradeExplain),
+    });
 
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: this.httpApi.apiEndpoint ?? '',

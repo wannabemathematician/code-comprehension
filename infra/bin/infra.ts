@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 import * as cdk from 'aws-cdk-lib/core';
 import { CodeComprehensionApiStack } from '../lib/api-stack';
 import { CodeComprehensionAuthStack } from '../lib/auth-stack';
 import { CodeComprehensionDataStack } from '../lib/data-stack';
 import { InfraStack } from '../lib/infra-stack';
+
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = new cdk.App();
 
@@ -24,4 +28,5 @@ new CodeComprehensionApiStack(app, 'CodeComprehensionApiStack', {
   userQuestionProgressTable: dataStack.userQuestionProgressTable,
   userPoolId: authStack.userPool.userPoolId,
   userPoolClientId: authStack.userPoolClient.userPoolClientId,
+  cohereApiKey: process.env.COHERE_API_KEY,
 });

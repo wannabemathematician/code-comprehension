@@ -6,6 +6,7 @@ import type {
   VirtualNode
 } from '../../mocks/virtualRepo';
 import { highlightCode } from '../../utils/syntaxHighlight';
+import { parseDiffMarkers } from '../../utils/diffParser';
 
 const TREE_INITIAL_PERCENT = 28;
 const MIN_TREE_PERCENT = 20;
@@ -33,6 +34,11 @@ type TreeItemProps = {
   onToggleDir: (path: string) => void;
   onSelectFile: (file: VirtualFile) => void;
 };
+
+function hasDiffMarkers(content: string): boolean {
+  const diff = parseDiffMarkers(content);
+  return diff.hasDiff;
+}
 
 function TreeItem({
   node,
@@ -79,6 +85,8 @@ function TreeItem({
     );
   }
 
+  const fileHasDiff = isFile && hasDiffMarkers(node.contents);
+
   return (
     <li className="flex">
       <button
@@ -92,7 +100,12 @@ function TreeItem({
         style={{ paddingLeft: 8 + depth * 12 }}
       >
         <span className="mr-1.5 w-3 text-[10px] text-slate-500">•</span>
-        <span>{node.name}</span>
+        <span className="flex-1">{node.name}</span>
+        {fileHasDiff && (
+          <span className="ml-1.5 text-[10px] text-slate-500" title="Contains diff markers">
+            ±
+          </span>
+        )}
       </button>
     </li>
   );
@@ -160,23 +173,93 @@ export function RepositoryExplorer({ root }: Props) {
               Empty file
             </div>
           ) : (
-            <div className="flex font-mono text-[11px] leading-relaxed">
-              <div className="shrink-0 select-none border-r border-slate-800 bg-slate-900/50 px-3 py-3 text-right text-slate-500">
-                {selectedFile.contents.split('\n').map((_, i) => (
-                  <div key={i} className="leading-relaxed">
-                    {i + 1}
+            (() => {
+              const diff = parseDiffMarkers(selectedFile.contents);
+              
+              // If no diff markers, render normally
+              if (!diff.hasDiff) {
+                const allLines = selectedFile.contents.split('\n');
+                const totalLines = allLines.length;
+                const maxLineNumberDigits = totalLines.toString().length;
+                const lineNumberWidth = `${maxLineNumberDigits * 0.6 + 1.5}rem`;
+                
+                return (
+                  <div className="flex font-mono text-[11px] leading-relaxed">
+                    <div 
+                      className="shrink-0 select-none border-r border-slate-800 bg-slate-900/50 px-3 py-3 text-right text-slate-500"
+                      style={{ width: lineNumberWidth, minWidth: lineNumberWidth }}
+                    >
+                      {allLines.map((_, i) => (
+                        <div key={i} className="leading-relaxed">
+                          {i + 1}
+                        </div>
+                      ))}
+                    </div>
+                    <pre className="m-0 min-h-full flex-1 bg-transparent p-3 text-slate-100 whitespace-pre">
+                      <code
+                        className={`language-${selectedFile.language}`}
+                        dangerouslySetInnerHTML={{
+                          __html: highlightCode(selectedFile.contents, selectedFile.language),
+                        }}
+                      />
+                    </pre>
                   </div>
-                ))}
-              </div>
-              <pre className="m-0 min-h-full flex-1 bg-transparent p-3 text-slate-100 whitespace-pre">
-                <code
-                  className={`language-${selectedFile.language}`}
-                  dangerouslySetInnerHTML={{
-                    __html: highlightCode(selectedFile.contents, selectedFile.language)
-                  }}
-                />
-              </pre>
-            </div>
+                );
+              }
+
+              // Render with diff markers
+              const codeWithoutMarkers = diff.lines.map((l) => l.content).join('\n');
+              const highlightedCode = highlightCode(codeWithoutMarkers, selectedFile.language);
+              const highlightedLines = highlightedCode.split('\n');
+              
+              // Calculate fixed width for line numbers based on total line count
+              const totalLines = diff.lines.length;
+              const maxLineNumberDigits = totalLines.toString().length;
+              // Width calculation: ~0.6rem per digit + padding (px-3 = 0.75rem each side = 1.5rem total)
+              const lineNumberWidth = `${maxLineNumberDigits * 0.6 + 1.5}rem`;
+
+              return (
+                <div className="font-mono text-[11px] leading-relaxed">
+                  {diff.lines.map((line, i) => {
+                    const lineColor =
+                      line.type === 'deletion'
+                        ? 'text-red-400/60'
+                        : line.type === 'insertion'
+                          ? 'text-emerald-400/60'
+                          : '';
+                    const bgColor =
+                      line.type === 'deletion'
+                        ? 'bg-red-500/10'
+                        : line.type === 'insertion'
+                          ? 'bg-emerald-500/10'
+                          : '';
+                    const highlightedLine = highlightedLines[i] || '';
+                    const isFirst = i === 0;
+                    const isLast = i === diff.lines.length - 1;
+                    return (
+                      <div key={i} className="flex">
+                        <div 
+                          className={`shrink-0 select-none border-r border-slate-800 bg-slate-900/50 px-3 text-right text-slate-500 leading-relaxed ${isFirst ? 'pt-3' : ''} ${isLast ? 'pb-3' : ''}`}
+                          style={{ width: lineNumberWidth, minWidth: lineNumberWidth }}
+                        >
+                          <span className={lineColor}>{i + 1}</span>
+                        </div>
+                        <div className={`flex-1 px-3 leading-relaxed ${bgColor} ${isFirst ? 'pt-3' : ''} ${isLast ? 'pb-3' : ''}`}>
+                          <pre className="m-0 bg-transparent text-slate-100 whitespace-pre">
+                            <code
+                              className={`language-${selectedFile.language}`}
+                              dangerouslySetInnerHTML={{
+                                __html: highlightedLine || '&nbsp;',
+                              }}
+                            />
+                          </pre>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
           )
         ) : (
           <div className="flex h-full min-h-[200px] items-center justify-center text-[11px] text-slate-400">

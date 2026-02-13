@@ -50,8 +50,9 @@ export const handler = async (event: {
                 Limit: 1,
               })
             );
-            completed = progressResult.Items && progressResult.Items.length > 0 && 
-                       progressResult.Items[0].status === 'COMPLETED';
+            if (progressResult.Items && progressResult.Items.length > 0) {
+              completed = progressResult.Items[0].status === 'COMPLETED';
+            }
           } catch (err) {
             console.error('Error checking completion for challenge', challenge.challengeId, err);
             // Continue without completion status if check fails

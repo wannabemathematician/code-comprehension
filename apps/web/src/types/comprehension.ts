@@ -1,5 +1,5 @@
 /**
- * Types for comprehension.json quiz schema (multiple choice + pro/con sort).
+ * Types for comprehension.json quiz schema (multiple choice + pro/con sort + explain).
  */
 
 export interface ComprehensionChoice {
@@ -37,7 +37,7 @@ export interface ProConScoring {
 
 export interface BaseComprehensionQuestion {
   id: string;
-  type: 'multipleChoice' | 'proConSort';
+  type: 'multipleChoice' | 'proConSort' | 'explain';
   prompt: string;
   helpText?: string;
   explanation?: string;
@@ -62,7 +62,45 @@ export interface ProConSortQuestion extends BaseComprehensionQuestion {
   feedback?: ComprehensionQuestionFeedback;
 }
 
-export type ComprehensionQuestion = MultipleChoiceQuestion | ProConSortQuestion;
+export interface MarkSchemePoint {
+  id: string;
+  text: string;
+  required?: boolean;
+  weight?: number;
+}
+
+export interface AvoidPoint {
+  id: string;
+  text: string;
+  weight?: number;
+  fatal?: boolean;
+  feedback?: string;
+}
+
+export interface ExplainScoring {
+  mode?: 'allOrNothing' | 'partial';
+}
+
+export interface AvoidScoring {
+  mode?: 'deduct' | 'fail';
+  floorAtZero?: boolean;
+  maxPenalty?: number;
+}
+
+export interface ExplainQuestion extends BaseComprehensionQuestion {
+  type: 'explain';
+  question: string;
+  modelAnswer?: string;
+  markScheme: MarkSchemePoint[];
+  avoidPoints?: AvoidPoint[];
+  scoring?: ExplainScoring;
+  avoidScoring?: AvoidScoring;
+  feedback?: ComprehensionQuestionFeedback;
+  /** Optional code snippet shown with the question; sent to grading API. */
+  codeSnippet?: string;
+}
+
+export type ComprehensionQuestion = MultipleChoiceQuestion | ProConSortQuestion | ExplainQuestion;
 
 export interface ComprehensionQuiz {
   id?: string;
@@ -71,5 +109,7 @@ export interface ComprehensionQuiz {
   shuffleQuestions?: boolean;
   shuffleChoices?: boolean;
   passingScore?: number;
+  /** For explain questions: score 0–100 required to count as "correct". Default 60. */
+  explainPassingPercent?: number;
   questions: ComprehensionQuestion[];
 }
